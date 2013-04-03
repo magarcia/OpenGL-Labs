@@ -11,7 +11,8 @@ ifeq ($(UNAME), Darwin)
 LFLAGS = -framework Carbon -framework OpenGL -framework GLUT
 endif
 
-EXEC	= bin/idi
+BUILDIR	= build
+EXEC	= $(BUILDIR)/idi
 OBJS	= main.o
 
 # Pretty print
@@ -25,7 +26,7 @@ Q_LD = $(Q:@=@echo    '     LD       '$@;)
 	$(Q_CC) $(CC) $(CFLAGS) -c -o $@ $<
 
 $(EXEC): $(OBJS)
-	@mkdir -p bin
+	@mkdir -p $(BUILDIR)
 	$(Q_LD) $(CC) $(LFLAGS) -o $@ $(OBJS)
 
 run: $(EXEC)
