@@ -174,6 +174,7 @@ void Help()
     cout << TERM__Purple << "  r/R:\t\t\t"   << TERM__Off << "Rotate up vector positive and negative respectively." << endl;
     cout << TERM__Purple << "  Arrow up/down:\t" << TERM__Off << "Change camera position arround X axis." << endl;
     cout << TERM__Purple << "  Arrow left/right:\t" << TERM__Off << "Change camera position arround Y axis." << endl;
+    cout << TERM__Purple << "  .:\t" << TERM__Off << "Reset camera position." << endl;
 }
 
 void Print(const std::string c, const std::string s)
@@ -537,21 +538,25 @@ void KeyboardPress(unsigned char key, int x, int y)
             glutPostRedisplay();
             break;
         case 's':               // Walk forward
+            if (VERBOSE) Log("Walk forward.");
             VRP -= (VRP - OBS) * 0.02;
             ChangeCamera();
             glutPostRedisplay();
             break;
         case 'w':               // Walk backward
+            if (VERBOSE) Log("Walk backward.");
             VRP += (VRP - OBS) * 0.02;
             ChangeCamera();
             glutPostRedisplay();
             break;
         case 'a':               // Walk left
+            if (VERBOSE) Log("Walk left.");
             VRP -= (VRP - OBS) * 0.02;
             ChangeCamera();
             glutPostRedisplay();
             break;
         case 'd':               // Walk right
+            if (VERBOSE) Log("Walk right.");
             VRP += (VRP - OBS) * 0.2;
             ChangeCamera();
             glutPostRedisplay();
