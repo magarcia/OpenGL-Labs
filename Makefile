@@ -13,7 +13,7 @@ endif
 
 BUILDIR	= build
 EXEC	= $(BUILDIR)/idi
-OBJS	= main.o
+OBJS	= main.o point.o model.o
 
 # Pretty print
 V = @
