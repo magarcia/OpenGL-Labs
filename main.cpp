@@ -1,14 +1,16 @@
-
-#include "opengl.h"
-
+// System includes
 #include <iostream>
 #include <cmath>
 #include <ctime>
-#include "planet.h"
+#include <string>
+
+// Our includes
+#include "opengl.h"
 #include "point.h"
-#include "color.h"
+#include "colors.h"
+#include "helpers.h"
 #include "model.h"
-#include "terminalcolors.h"
+
 using namespace std;
 
 // Window Size
@@ -22,43 +24,19 @@ using namespace std;
 
 // Window Title
 #ifndef TITLE
-#define TITLE "IDI: Solar System"
+#define TITLE "IDI: Lights and Models"
 #endif
 
-// Colors
-Color blue (0.0f, 0.0f, 1.0f, 1.0f);
-Color green (0.0f, 1.0f, 0.0f, 1.0f);
-Color cyan (0.0f, 1.0f, 1.0f, 1.0f);
-Color yellow (1.0f, 1.0f, 0.0f, 1.0f);
-Color orange (1.0f, 0.5f, 0.0f, 1.0f);
-Color red (1.0f, 0.0f, 0.0f, 1.0f);
-Color magenta (1.0f, 0.0f, 1.0f, 1.0f);
-Color white (1.0f, 1.0f, 1.0f, 1.0f);
-Color grey (0.25f, 0.25f, 0.25f);
-Color black (0.0f, 0.0f, 0.0f, 0.0f);
+// Define models
+Model model;
 
-Color Background (black);               // Define background color
-
-const GLfloat TO_RADIANS = M_PI/180.0;
-const GLfloat TO_DEGREES = 180.0/M_PI;
-
-// Planets
-/* Planet name (inclination, orbitDuration, orbitRadius, rotationDuration, radius, color)*/
-Planet sun (7.25, 0, 0, 1200, 0.22, yellow);
-Planet mercury (7, 87.9, 0.32, 58.65, 0.02, orange);
-Planet venus (3, 583.92, 0.45, -243.01, 0.05, magenta);
-Planet earth (7, 365.25, 0.65, 24, 0.10, blue);
-Planet mars (2, 686.97, 0.9, 24.6, 0.09, red);
-Planet jupiter (6.09, 4332.59, 1.7, 320.3, 0.15, orange);
-Planet saturn (15.09, 10759.22, 2.1, 378, 0.12, grey);
-Planet uranus (9.29, 30799.25, 2.5, 369, 0.10, cyan);
-Planet neptune (-2, 60799.25, 3, 367.49, 0.11, blue);
-
-// Rotation
-bool makeRotation = false;              // Enable solar system rotation
-int rotationAngle = 30;                 // Rotation angle for solar system
-Point rotationAxis(1, 0, 0);            // Rotation axis
-Point n;
+struct Object {
+  std::string filename;
+  GLfloat scale_factor;
+  bool vertex_normal;
+  GLfloat translateX, translateY, translateZ;
+  GLfloat rotateX, rotateY, rotateZ;
+} obj;
 
 // View
 bool axiometricView = false;            // Enable axiometric view
@@ -82,23 +60,25 @@ Point Trans(cos(theta * TO_RADIANS) * sin(psi * TO_RADIANS),
 Point OBS(VRP + EyeDist * Trans);       // Observer position
 Point UPv(0.0f, 1.0f, 0.0f);            // UP vector
 
-float cameraIncrement = 0.1f;           // Camera increment for changes.
-
-bool fly = true;                       // Enable Fly-through mode.
-bool walk = !fly;                      // Enable Walk mode.
-float pan = 0.0f;
-
 // Mouse controls
 bool LeftClicked = false;               // Left button clicked
 bool RightClicked = false;              // Right button clicked
 Point mouse(0.0f, 0.0f, 0.0f);          // Mouse position
 
+// For lights
+int lightPosition = 0;
+float posLight1[][4] = {
+    { 1.0f, 0.0f, -1.0f, 1.0f },
+    { 1.0f, 0.0f, 1.0f, 1.0f },
+    { -1.0f, 0.0f, 1.0f, 1.0f },
+    { -1.0f, 0.0f, -1.0f, 1.0f }
+};
+bool showCameraLight = true;
+bool showSceneLight = false;
+
 // Other
-// float scalation = 1.2f;              // Scale proportion
 bool VERBOSE = true;                    // Enable verbose
-bool Floor = true;                      // Enable floor
-bool Axes = true;                       // Enable axes
-        GLdouble m[16];
+bool Axes = false;                       // Enable axes
 
 /***** Function prototypes *****/
 
@@ -110,31 +90,36 @@ void MouseButton(int button, int state, int x, int y);
 void Display();
 void ResizeWindow(GLsizei w, GLsizei h);
 void ChangeCamera();
-
-void Help();
-void Print(const std::string c, const std::string s);
-void Log(const std::string s);
-void Error(const std::string s);
-void Warning(const std::string s);
-void PixelToCoordinates(int x, int y, Point *p);
+void RotateCamera();
+void SceneLight();
 
 void DrawFloor();
 void DrawAxes();
-void DrawPlanets();
-
-
+void Draw();
 
 /***** Function implementations *****/
 
 int main(int argc, const char *argv[])
 {
+    // Init models
+    obj.filename = "models/cow.obj";
+    obj.scale_factor = 2.0f;
+    obj.vertex_normal = true;
+    obj.translateX = 0.0f; 
+    obj.translateY = 0.64f; 
+    obj.translateZ = 0.0f;
+    obj.rotateX = -90.0f; 
+    obj.rotateY = -75.0f; 
+    obj.rotateZ = 0.0f;
+    
+
+
     // Init Glut.
     glutInit(&argc, (char **) argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 
-    // Add extras to planets
-    earth.addMoon();
-    mars.addAstronaut("models/HomerProves.obj");
+    // Load model
+    model.load(obj.filename);
 
     // Create window with WIDTH width and HEIGHT height.
     glutInitWindowSize(WIDTH, HEIGHT);
@@ -144,10 +129,17 @@ int main(int argc, const char *argv[])
     glutMouseFunc(MouseButton);                 // Mouse events.
     glutMotionFunc(MouseMotion);                // Drag mouse events.
     glutKeyboardFunc(KeyboardPress);            // Keyboard events.
-    glutSpecialFunc(NonASCIIKeyboardPress);     // Keyboard special events. 
+    glutSpecialFunc(NonASCIIKeyboardPress);     // Keyboard special events.
     glutReshapeFunc(ResizeWindow);              // Set resize function.
     glutIdleFunc(Display);                      // Set IDLE function.
+
+    // Set Flags
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_NORMALIZE);
+    glShadeModel(GL_SMOOTH);
+    glDisable(GL_COLOR_MATERIAL);
+
     ChangeCamera();
 
     // Main loop
@@ -158,124 +150,112 @@ int main(int argc, const char *argv[])
 void Help()
 {
     // Show help in command line
-    cout << TERM__Yellow << "IDI Solar System" << TERM__Off << endl;
+    cout << TERM__Yellow << TITLE << TERM__Off << endl;
     cout << TERM__Purple << "  Esc:\t\t\t" << TERM__Off << "Exit." << endl;
-    cout << TERM__Purple << "  h,?:\t\t\t" << TERM__Off << "Show this help." << endl;
-    cout << TERM__Purple << "  V:\t\t\t"   << TERM__Off << "Toggle verbose mode." << endl;
-    cout << TERM__Purple << "  p:\t\t\t"   << TERM__Off << "Switch planets between solid and wire." << endl;
-    cout << TERM__Purple << "  f:\t\t\t"   << TERM__Off << "Toggle view floor." << endl;
-    cout << TERM__Purple << "  F:\t\t\t"   << TERM__Off << "Toggle view axes." << endl;
-    cout << TERM__Purple << "  +:\t\t\t"   << TERM__Off << "Increment velocity." << endl;
-    cout << TERM__Purple << "  -:\t\t\t"   << TERM__Off << "Decrement velocity." << endl;
-    cout << TERM__Purple << "  w/s:\t\t\t" << TERM__Off << "Walk forward/backward." << endl;
-    cout << TERM__Purple << "  a/d:\t\t\t" << TERM__Off << "Walk left/right." << endl;
-    cout << TERM__Purple << "  v:\t\t\t"   << TERM__Off << "Switch between axiometric and perspective view." << endl;
-    cout << TERM__Purple << "  c:\t\t\t"   << TERM__Off << "Switch between gluLookAt and Euler camera." << endl;
+    cout << TERM__Purple << "  h:\t\t\t" << TERM__Off << "Show this help." << endl;
+    cout << TERM__Purple << "  v:\t\t\t"   << TERM__Off << "Toggle verbose mode." << endl;
+    cout << TERM__Purple << "  f:\t\t\t"   << TERM__Off << "Toggle scene floor." << endl;
+    cout << TERM__Purple << "  s:\t\t\t"   << TERM__Off << "Change scene floor." << endl;
+    cout << TERM__Purple << "  c:\t\t\t"   << TERM__Off << "Toggle camera floor." << endl;
+    cout << TERM__Purple << "  a:\t\t\t"   << TERM__Off << "Toggle view axes." << endl;
     cout << TERM__Purple << "  r/R:\t\t\t"   << TERM__Off << "Rotate up vector positive and negative respectively." << endl;
     cout << TERM__Purple << "  Arrow up/down:\t" << TERM__Off << "Change camera position arround X axis." << endl;
     cout << TERM__Purple << "  Arrow left/right:\t" << TERM__Off << "Change camera position arround Y axis." << endl;
     cout << TERM__Purple << "  .:\t" << TERM__Off << "Reset camera position." << endl;
 }
 
-void Print(const std::string c, const std::string s)
-{
-    time_t rawtime;
-    struct tm * ptm;
-    time(&rawtime);
-    ptm = gmtime(&rawtime);
+void SceneLight() {
+    lightPosition = lightPosition % 4;
 
-    cout << c;  // Set color
-    // Print HOUR
-    if (ptm->tm_hour < 10){
-        cout << 0 << (ptm->tm_hour)%24 << ":";
-    } else {
-        cout << (ptm->tm_hour)%24 << ":";
-    }
-    // Print MINUTES
-    if (ptm->tm_min < 10){
-        cout << 0 << (ptm->tm_min)%60 << ":";
-    } else {
-        cout << (ptm->tm_min)%60 << ":";
-    }
-    // Print SECONDS
-    if (ptm->tm_sec < 10){
-        cout << 0 << (ptm->tm_sec)%60;
-    } else {
-        cout << (ptm->tm_sec)%60;
-    }
-    // Print String
-    cout << "  " << s << TERM__Off << endl;
-}
-
-void Log(const std::string s)
-{
-    Print(TERM__Blue, s);
-}
-
-void Error(const std::string s)
-{
-    Print(TERM__Red, s);
-}
-
-void Warning(const std::string s)
-{
-    Print(TERM__Yellow, s);
+    glLightfv(GL_LIGHT1,GL_AMBIENT, white);
+    glLightfv(GL_LIGHT1,GL_DIFFUSE, white);
+    glLightfv(GL_LIGHT1,GL_SPECULAR, white);
+    glLightfv(GL_LIGHT1,GL_POSITION, posLight1[lightPosition]);
 }
 
 void DrawFloor()
 {
-    if (Floor) {
-        glBegin(GL_LINES);
-            for(int i=-50; i<=50; i++) {
+    GLfloat color[] = {blue[0], blue[1], blue[2]};
+    GLfloat whitef[] = {white[0], white[1], white[2]};
+    GLfloat shininess = 120.0f;
+    glColor3f(blue[0], blue[1], blue[2]);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, color);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, whitef);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, &shininess);
 
-                // Vertical lines
-                glColor3f(grey[0], grey[1], grey[2]);
-                glVertex3f(i, 0, -50);
-                glVertex3f(i, 0, 50);
 
-                // Horizontal lines
-                glColor3f(grey[0], grey[1], grey[2]);
-                glVertex3f(-50, 0, i);
-                glVertex3f(50, 0, i);
-            };
-        glEnd();
-    }
+    glBegin(GL_QUADS);
+        glNormal3f(-50, 0, 50);
+        glVertex3f(-50, 0, 50);
+
+        glNormal3f(-50, 0, -50);
+        glVertex3f(-50, 0, -50);
+
+        glNormal3f(50, 0, -50);
+        glVertex3f(50, 0, -50);
+
+        glNormal3f(50, 0, 50);
+        glVertex3f(50, 0, 50);
+    glEnd();
 }
 
 void DrawAxes (void)
 {
+    GLfloat shininess = 0.0f;
+    GLfloat redf[] = {red[0], red[1], red[2]};
+    GLfloat bluef[] = {blue[0], blue[1], blue[2]};
+    GLfloat greenf[] = {green[0], green[1], green[2]};
+
     if (Axes) {
         glBegin (GL_LINES);
             // X axis in red.
+            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, redf);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, redf);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, redf);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, &shininess);
             glColor3f(red[0], red[1], red[2]);
+            
             glVertex3f(-50, 0, 0);
             glVertex3f(50, 0, 0);
 
             // Y axis in blue
+            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, bluef);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, bluef);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, bluef);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, &shininess);
             glColor3f(blue[0], blue[1], blue[2]);
+
             glVertex3f(0, -50, 0);
             glVertex3f(0, 50, 0);
 
             // Z axis in green
+            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, greenf);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, greenf);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, greenf);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, &shininess);
             glColor3f(green[0], green[1], green[2]);
+
             glVertex3f(0, 0, -50);
             glVertex3f(0, 0, 50);
         glEnd();
     }
 }
 
-void DrawPlanets()
+void Draw()
 {
-    sun.draw();
-    mercury.draw();
-    venus.draw();
-    earth.draw();
-    mars.draw();
-    // jupiter.draw();
-    // saturn.draw();
-    // uranus.draw();
-    // neptune.draw();
-
+    glPushMatrix();
+        glTranslatef(obj.translateX, obj.translateY, obj.translateZ);
+        // glRotated(rotationAngle, rotationAxis.x, rotationAxis.y, rotationAxis.z);
+        glRotated(obj.rotateZ, 0.0f, 0.0f, 1.0f);
+        glRotated(obj.rotateY, 0.0f, 1.0f, 0.0f);
+        glRotated(obj.rotateX, 1.0f, 0.0f, 0.0f);
+        glScalef(obj.scale_factor,
+                 obj.scale_factor,
+                 obj.scale_factor);
+        model.vertex_normal = obj.vertex_normal;
+        model.draw();
+    glPopMatrix();
 }
 
 void ChangeCamera()
@@ -304,25 +284,52 @@ void ChangeCamera()
     }
 }
 
+void RotateCamera() {
+
+    Trans.x = sin(theta * TO_RADIANS) * cos(psi * TO_RADIANS);
+    Trans.y = sin(theta * TO_RADIANS);
+    Trans.z = cos(theta * TO_RADIANS) * cos(psi * TO_RADIANS);
+
+    VRP = OBS + Trans;
+    ChangeCamera();
+}
+
+void ToggleCameraLight() {
+    if (VERBOSE) Log("Toggle camera light");
+    if (!showCameraLight) {
+        glEnable(GL_LIGHT0);
+    } else {
+        glDisable(GL_LIGHT0);
+    }
+    showCameraLight = !showCameraLight;
+}
+
+void ToggleSceneLight() {
+    if (VERBOSE) Log("Toggle scene light");
+    if (!showSceneLight) {
+        glEnable(GL_LIGHT1);
+    } else {
+        glDisable(GL_LIGHT1);
+    }
+    showSceneLight = !showSceneLight;
+}
+
 void Display()
 {
 
     // Set bolor background
-    glClearColor(Background[Color::R], Background[Color::G],
-                 Background[Color::B], Background[Color::A]);
+    glClearColor(black[R], black[G], black[B], black[A]);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    DrawPlanets();
-    DrawAxes();
+    Draw();
+
+    // Extras
+    if (Axes) DrawAxes();
     DrawFloor();
 
-    if (makeRotation) {
-        glGetDoublev(GL_MODELVIEW_MATRIX, m);
-        glLoadIdentity();
-        glRotated(rotationAngle, rotationAxis.x, rotationAxis.y, rotationAxis.z);
-        glMultMatrixd(m);
-        makeRotation = false;
-    }
+    // Lights
+    if (showCameraLight) glEnable(GL_LIGHT0);
+    if (showSceneLight) SceneLight();
 
     glutSwapBuffers();
 }
@@ -330,7 +337,7 @@ void Display()
 void ResizeWindow(GLsizei w, GLsizei h)
 {
     float fov, zNear, zFar, left, right, bottom, top;
-    
+
     // Set variables
     if(w <= h)
     {
@@ -384,29 +391,6 @@ void ResizeWindow(GLsizei w, GLsizei h)
     ChangeCamera();
 }
 
-void pixelToCoordinates(int x, int y, Point *p)
-{
-    // Declare local variables
-    GLint viewport[4];
-    GLdouble modelview[16];
-    GLdouble projection[16];
-    GLfloat winX, winY, winZ = 0;
-    GLdouble posX, posY, posZ;
- 
-    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);   // Get model view matrix
-    glGetDoublev(GL_PROJECTION_MATRIX, projection); // Get projection matix
-    glGetIntegerv(GL_VIEWPORT, viewport);           // Get viewport
- 
-    winX = (float) x;
-    winY = (float) viewport[3] - (float) y;
- 
-    // Get coordinates from pixels in posX, posY, posZ
-    gluUnProject(winX, winY, winZ, modelview, projection, viewport, &posX,
-                 &posY, &posZ);
- 
-    p->x = posX; p->y = posY; p->z = posZ;  // Set new position
-}
-
 void MouseButton(int button, int state, int x, int y)
 {
     switch (button) {
@@ -426,7 +410,7 @@ void MouseButton(int button, int state, int x, int y)
         default:
             break;
     }
-    
+
 }
 
 void MouseMotion(int x, int y)
@@ -468,10 +452,17 @@ void MouseMotion(int x, int y)
 void KeyboardPress(unsigned char key, int x, int y)
 {
     switch (key) {
+        // Controls
         case 27:        // ESCAPE key.
             exit(0);
             break;
+        case 'q':        // ESCAPE key.
+            exit(0);
+            break;
         case 'h':       // Show help.
+            Help();
+            break;
+        case 'H':       // Show help.
             Help();
             break;
         case '?':       // Show help.
@@ -480,112 +471,33 @@ void KeyboardPress(unsigned char key, int x, int y)
         case 'V':       // Toggle Verbose mode.
             VERBOSE = !VERBOSE;
             break;
-        case '+':       // Increment velocity of orbit period
-            if (VERBOSE) Log("Increment velocity of orbit period.");
-            sun.setIncrement(sun.getIncrement() + 1);
-            mercury.setIncrement(mercury.getIncrement() + 1);
-            venus.setIncrement(venus.getIncrement() + 1);
-            earth.setIncrement(earth.getIncrement() + 1);
-            mars.setIncrement(mars.getIncrement() + 1);
-            // jupiter.setIncrement(jupiter.getIncrement() + 1);
-            // saturn.setIncrement(saturn.getIncrement() + 1);
-            // uranus.setIncrement(uranus.getIncrement() + 1);
-            // neptune.setIncrement(neptune.getIncrement() + 1);
-            glutPostRedisplay();
+        case 'v':       // Toggle Verbose mode.
+            VERBOSE = !VERBOSE;
             break;
-        case '-':        // Decrement velocity of orbit period
-            if (VERBOSE) Log("Decrement velocity of orbit period.");
-            sun.setIncrement(sun.getIncrement() - 1);
-            mercury.setIncrement(mercury.getIncrement() - 1);
-            venus.setIncrement(venus.getIncrement() - 1);
-            earth.setIncrement(earth.getIncrement() - 1);
-            mars.setIncrement(mars.getIncrement() - 1);
-            // jupiter.setIncrement(jupiter.getIncrement() - 1);
-            // saturn.setIncrement(saturn.getIncrement() - 1);
-            // uranus.setIncrement(uranus.getIncrement() - 1);
-            // neptune.setIncrement(neptune.getIncrement() - 1);
-            glutPostRedisplay();
-            break;
-        case 'p':       // Switch planet render between solid and wire.
-            if (VERBOSE) {
-                if (!sun.getSolid()) {
-                    Log("Enable solid planets.");
-                } else {
-                    Log("Disable solid planets.");
-                }
-            }
-            sun.makeSolid(!sun.getSolid());
-            mercury.makeSolid(!mercury.getSolid());
-            venus.makeSolid(!venus.getSolid());
-            earth.makeSolid(!earth.getSolid());
-            mars.makeSolid(!mars.getSolid());
-            // jupiter.makeSolid(!jupiter.getSolid());
-            // saturn.makeSolid(!saturn.getSolid());
-            // uranus.makeSolid(!uranus.getSolid());
-            // neptune.makeSolid(!neptune.getSolid());
-            glutPostRedisplay();
-            break;
-        case 'v':       // Switch between axiometric and perspective View
-            if (VERBOSE) {
-                if (!axiometricView) {
-                    Log("Enable axiometric view.");
-                } else {
-                    Log("Enable perspective view.");
-                }
-            }
-            axiometricView = !axiometricView;
-            perspectiveView = !axiometricView;
-            glutPostRedisplay();
-            break;
-        case 's':               // Walk forward
-            if (VERBOSE) Log("Walk forward.");
-            VRP -= (VRP - OBS) * 0.02;
+
+        // Camera
+        case '.':               // Reset camera to original position
+            if (VERBOSE) Log("Reset camera position.");
+            EyeDist = 7.0f;                   // Camera distance
+            theta = 10.0f;
+            psi = 15.0f;
+            phi = 0.0f;
+            VRP.x = 0;
+            VRP.y = 0;
+            VRP.z = 0;
             ChangeCamera();
             glutPostRedisplay();
-            break;
-        case 'w':               // Walk backward
-            if (VERBOSE) Log("Walk backward.");
-            VRP += (VRP - OBS) * 0.02;
-            ChangeCamera();
-            glutPostRedisplay();
-            break;
-        case 'a':               // Walk left
-            if (VERBOSE) Log("Walk left.");
-            VRP -= (VRP - OBS) * 0.02;
-            ChangeCamera();
-            glutPostRedisplay();
-            break;
-        case 'd':               // Walk right
-            if (VERBOSE) Log("Walk right.");
-            VRP += (VRP - OBS) * 0.2;
-            ChangeCamera();
-            glutPostRedisplay();
-            break;
-        // End rotate solar system
         case 'z':               // Zoom out
             if (VERBOSE) Log("Zoom out.");
-            EyeDist += 1;
+            EyeDist += 5;
             if(EyeDist < 0) EyeDist = 0;
             ChangeCamera();
             glutPostRedisplay();
             break;
         case 'Z':               // Zoom in
             if (VERBOSE) Log("Zoom in.");
-            EyeDist -= 1;
+            EyeDist -= 5;
             if(EyeDist > 50) EyeDist = 50;
-            ChangeCamera();
-            glutPostRedisplay();
-            break;
-        case 'c':       // Switch between axiometric and perspective View
-            if (VERBOSE) {
-                if (!eulerCamera) {
-                    Log("Enable Euler camera.");
-                } else {
-                    Log("Enable gluLookAt camera.");
-                }
-            }
-            eulerCamera = !eulerCamera;
-            lookCamera = !eulerCamera;
             ChangeCamera();
             glutPostRedisplay();
             break;
@@ -601,26 +513,24 @@ void KeyboardPress(unsigned char key, int x, int y)
             ChangeCamera();
             glutPostRedisplay();
             break;
-        case 'k':
-            if(!fly) {
-                if (VERBOSE) Log("Enable Fly-through mode.");
-            } else {
-                if (VERBOSE) Log("Enable Walk mode.");
-            }
-            fly = !fly;
-            walk = !fly;
+
+        // Lights
+        case 's':               // Change scene light position
+            if (VERBOSE) Log("Change scene light position.");
+            lightPosition += 1;
             glutPostRedisplay();
             break;
-        case 'f':               // Toggle floor
-            if (!Floor) {
-                if (VERBOSE) Log("Enable floor.");
-            } else {
-                if (VERBOSE) Log("Disable floor.");
-            }
-            Floor = !Floor;
+        case 'f':               // Toggle scene light
+            ToggleSceneLight();
             glutPostRedisplay();
             break;
-        case 'F':               // Toggle axes
+        case 'c':       // Toggle camera light
+            ToggleCameraLight();
+            glutPostRedisplay();
+            break;
+
+        // Extras
+        case 'a':               // Toggle axes
             if (!Axes) {
                 if (VERBOSE) Log("Enable axes.");
             } else {
@@ -629,17 +539,7 @@ void KeyboardPress(unsigned char key, int x, int y)
             Axes = !Axes;
             glutPostRedisplay();
             break;
-        case '.':               // Reset camera to original position
-            if (VERBOSE) Log("Reset camera position.");
-            EyeDist = 7.0f;                   // Camera distance
-            theta = 10.0f;
-            psi = 15.0f;
-            phi = 0.0f;
-            VRP.x = 0;
-            VRP.y = 0;
-            VRP.z = 0;
-            ChangeCamera();
-            glutPostRedisplay();
+        
         default:
             // Do nothing
             glutPostRedisplay();

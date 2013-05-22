@@ -44,6 +44,7 @@ class Model {
  public:
   Model();
   ~Model();
+  bool vertex_normal;
   void load(std::string filename);
   const std::vector<Vertex>& vertices() const {
     return _vertices;
@@ -54,6 +55,7 @@ class Model {
   const std::vector<Face>& faces() const {
     return _faces;
   }
+  void draw();
   void dumpStats() const;
   void dumpModel() const;
   

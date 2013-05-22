@@ -10,13 +10,14 @@ Show a basic solar system: Sun, Mercury, Venus, Earth (with Moon) and Mars
 (with Astronaut).
 
 ## Block 3
-Show a basic solar system: Sun, Mercury, Venus, Earth (with Moon) and Mars (with Astronaut).
-With simple interactions that allow the system to rotate about the axis X or
-Y, increase or decrease the speed of rotation of the planets, change
+Show a basic solar system: Sun, Mercury, Venus, Earth (with Moon) and Mars (with
+Astronaut). With simple interactions that allow the system to rotate about the
+axis X or Y, increase or decrease the speed of rotation of the planets, change
 rendering between solid objects or wired and walk in the scene.
 
 ## Block 4
-TODO
+Load model over a blue floor and show camera and scene light with simple
+light interactions.
 
 # Downloads
 
