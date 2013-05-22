@@ -22,6 +22,6 @@ light interactions.
 # Downloads
 
 - [Bloc 1](https://github.com/magarcia/OpenGL-Labs/archive/v1.0.tar.gz "V1.0")
-- Bloc 2 (_Not available_)
+- Bloc 2 (*Not available*)
 - [Bloc 3](https://github.com/magarcia/OpenGL-Labs/archive/v3.0.tar.gz "V3.0")
 - [Bloc 4](https://github.com/magarcia/OpenGL-Labs/archive/v4.0.tar.gz "V4.0")
