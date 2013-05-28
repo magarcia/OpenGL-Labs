@@ -28,7 +28,6 @@ static string modelPath("");
 
 // ======== Constructors and Destructors =======
 Model::Model() : _vertices(0), _normals(0), _faces(0) {
-  vertex_normal = true;
 }
 
 Model::~Model() {
@@ -159,20 +158,51 @@ void Model::load(std::string filename) {
   omplenormals(_faces, _vertices);  // afegim normals per cara...
 }
 
-void Model::draw() {
+void Model::draw(int height) {
+  GLfloat xmin, xmax, ymin, ymax, zmin, zmax;
+  GLfloat xc, yc, zc;
+  float factor;
+  unsigned int s = this->_vertices.size();
+
+  xmin = xmax = this->_vertices[0];
+  ymin = ymax = this->_vertices[1];
+  zmin = zmax = this->_vertices[2];
+
+  for (unsigned int i = 3; i < s; i+=3) {
+      if (xmin > this->_vertices[i]) xmin = this->_vertices[i];
+      if (xmax < this->_vertices[i]) xmax = this->_vertices[i];
+
+      if (ymin > this->_vertices[i+1]) ymin = this->_vertices[i+1];
+      if (ymax < this->_vertices[i+1]) ymax = this->_vertices[i+1];
+
+      if (zmin > this->_vertices[i+2]) zmin = this->_vertices[i+2];
+      if (zmax < this->_vertices[i+2]) zmax = this->_vertices[i+2];
+  }
+
+  xc = (xmax + xmin)/2;
+  yc = (ymax + ymin)/2;
+  zc = (zmax + zmin)/2;
+
+  factor = (ymax - ymin);
+  glScalef(height/factor, height/factor, height/factor);
+
+  glTranslatef(-xc, -yc, -zc);
+
   glBegin(GL_TRIANGLES);
-        unsigned int s = this->_faces.size();
+        s = this->_faces.size();
         int current_material = -1;
-        for(unsigned int i = 0; i < s; ++i){
+
+        for (unsigned int i = 0; i < s; ++i){
             const Face &f = this->_faces[i];
             if ((current_material < 0) || (current_material != f.mat)) {
-              glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, (GLfloat*) &Materials[f.mat].ambient);
-              glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, (GLfloat*) &Materials[f.mat].diffuse);
-              glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, (GLfloat*) &Materials[f.mat].specular);
-              glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, (GLfloat*) &Materials[f.mat].shininess);
+              glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, (GLfloat *) &Materials[f.mat].ambient);
+              glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, (GLfloat *) &Materials[f.mat].diffuse);
+              glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, (GLfloat *) &Materials[f.mat].specular);
+              glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, (GLfloat *) &Materials[f.mat].shininess);
               current_material = f.mat;
             }
-            if (this->vertex_normal) {
+
+            if (f.n.size() > 0) {
               glNormal3dv(&this->_normals[f.n[0]]);
               glVertex3dv(&this->_vertices[f.v[0]]);
               glNormal3dv(&this->_normals[f.n[1]]);
@@ -180,11 +210,9 @@ void Model::draw() {
               glNormal3dv(&this->_normals[f.n[2]]);
               glVertex3dv(&this->_vertices[f.v[2]]);
             } else {
-              glNormal3dv(&this->_normals[f.normalC[0]]);
+              glNormal3dv(f.normalC);
               glVertex3dv(&this->_vertices[f.v[0]]);
-              glNormal3dv(&this->_normals[f.normalC[1]]);
               glVertex3dv(&this->_vertices[f.v[1]]);
-              glNormal3dv(&this->_normals[f.normalC[2]]);
               glVertex3dv(&this->_vertices[f.v[2]]);
             }
         }
